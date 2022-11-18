@@ -1,4 +1,4 @@
-"""Image/Video Photo Style Package."""  # coding=utf-8
+"""Image/Video Water Style Package."""  # coding=utf-8
 #
 # /************************************************************************************
 # ***
