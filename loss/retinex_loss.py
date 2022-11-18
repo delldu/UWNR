@@ -5,7 +5,7 @@ from PIL import Image
 import torch
 import numpy as np
 import math
-
+import pdb
 
 r = 0
 s = [15,60,90]
@@ -40,7 +40,6 @@ class MyGaussianBlur(torch.nn.Module):
 
 # print(loss.item())
 def MutiScaleLuminanceEstimation(img):
-
     guas_15 = MyGaussianBlur(radius=r, sigema=15).cuda()
     temp_15 = guas_15.template()
         

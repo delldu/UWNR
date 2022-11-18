@@ -1,23 +1,27 @@
 import torch
 import torch.nn as nn
-from torch.nn.modules.activation import ELU, LeakyReLU, Sigmoid
-from torch.nn.modules.upsampling import Upsample
+# from torch.nn.modules.activation import ELU, LeakyReLU, Sigmoid
+# from torch.nn.modules.upsampling import Upsample
+
+import pdb
+
+
 #from model.dcn import DeformableConv2d
 #from DCNv2.dcn_v2 import DCN
-class double_conv(nn.Module):
-    '''(conv => BN => ReLU) * 2'''
-    def __init__(self, in_ch, out_ch,conv=nn.Conv2d,act=nn.ELU):
-        super(double_conv, self).__init__()
-        self.conv = nn.Sequential(
-            conv(in_ch, out_ch, 3, padding=1),
-            act(inplace=True),
-            conv(out_ch, out_ch, 3, padding=1),
-            act(inplace=True)
-        )
+# class double_conv(nn.Module):
+#     '''(conv => BN => ReLU) * 2'''
+#     def __init__(self, in_ch, out_ch,conv=nn.Conv2d,act=nn.ELU):
+#         super(double_conv, self).__init__()
+#         self.conv = nn.Sequential(
+#             conv(in_ch, out_ch, 3, padding=1),
+#             act(inplace=True),
+#             conv(out_ch, out_ch, 3, padding=1),
+#             act(inplace=True)
+#         )
 
-    def forward(self, x):
-        x = self.conv(x) + x
-        return x
+#     def forward(self, x):
+#         x = self.conv(x) + x
+#         return x
     
 class downsample(nn.Module):
     def __init__(self, in_ch, out_ch,conv=nn.Conv2d,act=nn.ELU):
@@ -123,7 +127,6 @@ class Generator(nn.Module):
             nn.Conv2d(32,3,3,1,1),
             nn.Tanh(),
         )
-        
         #self.deConv1 = DeformableConv2d(512,512,3,1,1)
 
     def forward(self,x):

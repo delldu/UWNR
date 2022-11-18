@@ -24,6 +24,34 @@ np.random.seed(2)
 from tqdm import tqdm
 import csv
 
+import torch.nn as nn
+import torch.nn.functional as F
+
+class GaussFilter(nn.Module):
+    """
+    3x3 Guassian filter
+    """
+    def __init__(self):
+        super(GaussFilter, self).__init__()
+        self.conv = nn.Conv2d(3, 3, kernel_size=3, padding=1, groups=3, bias=False)
+
+        # self.conv.bias.data.fill_(0.0)
+        self.conv.weight.data.fill_(0.0625)
+        self.conv.weight.data[:, :, 0, 1] = 0.125
+        self.conv.weight.data[:, :, 1, 0] = 0.125
+        self.conv.weight.data[:, :, 1, 2] = 0.125
+        self.conv.weight.data[:, :, 2, 1] = 0.125
+        self.conv.weight.data[:, :, 1, 1] = 0.25
+
+    def forward(self, x):
+        B, C, H, W = x.size()
+        x = F.interpolate(x, (H//32, W//32), mode="bilinear", align_corners=True)
+        for i in range(3):
+            x = self.conv(x)
+        x = (x - x.min())/(x.max() - x.min() + 1e-8)
+        x = F.interpolate(x, (H, W), mode="bilinear", align_corners=True)
+        return x
+
 
 class SUID_Dataset(data.Dataset):
     def __init__(self,path,train,size=128,format='.png'):
@@ -161,10 +189,11 @@ class UWS_Dataset_Retinex(data.Dataset):
             A_map =dcp.MutiScaleLuminanceEstimation(np.uint8(np.array(data)))
             A_map = tfs.ToTensor()(np.float32(A_map))/255
             data=tfs.ToTensor()(data) 
+
             #A_map = A_map.view_as(data)
         depth_map = np.float32(np.array(depth_map))/255
         
-        ones_matrix = np.ones_like(data.numpy())
+        # ones_matrix = np.ones_like(data.numpy())
         
         depth_map = tfs.ToTensor()(depth_map)
         #print('1',target.shape)
@@ -178,6 +207,9 @@ class UWS_Dataset_Retinex(data.Dataset):
 # loop = tqdm(enumerate(UW_train_loader),total=len(UW_train_loader))
 # for i ,(a,b,c,d) in loop:
 #     print(a)
+
+
+
 class UWS_Dataset_Retinex_test(data.Dataset):
     def __init__(self,path,train,size=128,format='.png',dcp=False):
         super(UWS_Dataset_Retinex_test,self).__init__()
@@ -186,12 +218,16 @@ class UWS_Dataset_Retinex_test(data.Dataset):
         self.dcp = dcp
         self.train=train
         self.format=format
-        self.uw_imgs_dir=os.listdir(os.path.join(path,'qingxi'))
+        # self.uw_imgs_dir=os.listdir(os.path.join(path,'qingxi'))
+        self.uw_imgs_dir=os.listdir(os.path.join(path))
         random.shuffle(self.uw_imgs_dir)
         #self.uw_imgs_dir.sort()
-        self.uw_imgs=[os.path.join(path,'qingxi',img) for img in self.uw_imgs_dir]
-        print('Total Images===>',len(self.uw_imgs))
+        # self.uw_imgs=[os.path.join(path,'qingxi',img) for img in self.uw_imgs_dir]
+        self.uw_imgs=[os.path.join(path,img) for img in self.uw_imgs_dir]
 
+        self.gauss_filter = GaussFilter()
+
+        print('Total Images===>',len(self.uw_imgs))
 
     def __getitem__(self, index):
         uw=Image.open(self.uw_imgs[index])
@@ -211,10 +247,14 @@ class UWS_Dataset_Retinex_test(data.Dataset):
             A_map[1] = A_map[1]*int(rows[index][1])/255
             A_map[2] = A_map[2]*int(rows[index][0])/255
         else:
-            A_map =dcp.MutiScaleLuminanceEstimation(np.uint8(np.array(data)))
-            A_map = tfs.ToTensor()(np.float32(A_map))/255
+            # A_map =dcp.MutiScaleLuminanceEstimation(np.uint8(np.array(data)))
+            # A_map = tfs.ToTensor()(np.float32(A_map))/255
+
             #A_map = A_map.view_as(data)
-            data=tfs.ToTensor()(data) 
+            data=tfs.ToTensor()(data)
+            A_map = self.gauss_filter(data.unsqueeze(0)).squeeze(0) 
+
+            print("data.size(): ", data.size(), data.mean())
 
         return A_map,data# data,target,depth_map,
     def __len__(self):

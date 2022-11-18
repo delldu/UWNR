@@ -1,5 +1,7 @@
 import numpy as np
 import cv2
+import pdb
+
 def get_dark_channel(image, w=15):
     """
     Get the dark channel prior in the (RGB) image data.
@@ -48,19 +50,81 @@ def estimation_atmosphere(image,sigmaX = 10,blocksize=61):
     return backscattering_light
 
 
+def kernel_size(sigma):
+    return 3.0 + 2.0*(sigma - 0.8)/0.3
+
+import math
+import torch
+
+r = 0
+s = [15,60,90]
+class MyGaussianBlur(torch.nn.Module):
+    #初始化
+    def __init__(self, radius=1, sigema=1.5):
+        super(MyGaussianBlur,self).__init__()
+        self.radius=radius
+        self.sigema=sigema
+    #高斯的计算公式
+    def calc(self,x,y):
+        res1=1/(2*math.pi*self.sigema*self.sigema)
+        res2=math.exp(-(x*x+y*y)/(2*self.sigema*self.sigema))
+        return res1*res2
+ 
+    #滤波模板
+    def template(self):
+        sideLength=self.radius*2+1
+        result=np.zeros((sideLength, sideLength))
+        for i in range(0, sideLength):
+            for j in range(0,sideLength):
+                result[i, j] = self.calc(i - self.radius, j - self.radius)
+        all= result.sum()
+        return result/all
+    #滤波函数
+    def filter(self, image, template):
+        kernel = torch.FloatTensor(template).cuda()
+        kernel2 = kernel.expand(3, 1, 2*r+1, 2*r+1)
+        weight = torch.nn.Parameter(data=kernel2, requires_grad=False)
+        new_pic2 = torch.nn.functional.conv2d(image, weight, padding=r, groups=3)
+        return new_pic2
+
+# print(loss.item())
+def MutiScaleLuminanceEstimation1(img):
+    guas_15 = MyGaussianBlur(radius=r, sigema=15).cuda()
+    temp_15 = guas_15.template()
+        
+    guas_60 = MyGaussianBlur(radius=r, sigema=60).cuda()
+    temp_60 = guas_60.template()
+
+    guas_90 = MyGaussianBlur(radius=r, sigema=90).cuda()
+    temp_90 = guas_90.template()
+    x_15 = guas_15.filter(img, temp_15)
+    x_60 = guas_60.filter(img, temp_60)
+    x_90 = guas_90.filter(img, temp_90)
+    img = (x_15+x_60+x_90)/3
+
+    return img
+
 
 def MutiScaleLuminanceEstimation(img):
+    #  img.shape -- (400, 400, 3), dtype=uint8, 0-255
+
     sigma_list  = [15,60,90]
     w,h,c = img.shape
-    img = cv2.resize(img,dsize=None,fx=0.3,fy=0.3)
+    img = cv2.resize(img,dsize=None,fx=0.3,fy=0.3) # (120, 120, 3)
+
+    # kernel_size(15)
+
     Luminance = np.ones_like(img).astype(np.float)
     for sigma in sigma_list:
-        Luminance1 = np.log10(cv2.GaussianBlur(img, (0,0), sigma))
+        kernel = 6 * sigma + 1
+        Luminance1 = np.log10(cv2.GaussianBlur(img, (kernel, kernel), sigma))
         Luminance1 = np.clip(Luminance1,0,255)
         Luminance += Luminance1
     Luminance =  Luminance/3
     L = (Luminance - np.min(Luminance)) / (np.max(Luminance) - np.min(Luminance)+0.0001)
     L =  np.uint8(L*255)
     L =  cv2.resize(L,dsize=(h,w))
+    #  L.shape -- (400, 400, 3), dtype=uint8
+
     return L
 
