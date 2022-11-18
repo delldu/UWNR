@@ -19,7 +19,7 @@ setup(
     version="1.0.0",
     author="Dell Du",
     author_email="18588220928@163.com",
-    description="image/video photo style package",
+    description="image/video water style package",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/delldu/WCT2.git",
